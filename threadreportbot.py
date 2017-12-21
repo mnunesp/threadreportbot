@@ -12,11 +12,11 @@ import logging
 
 from praw.models import Comment
 
-USERNAME = "ThreadReportBot"
+USERNAME = ""
 PASSWORD = ""
 
-MAX_POSTS = 100 # Max # of posts to consider in data gathering
-MAX_SUBREDDITS = 25 #
+MAX_POSTS = 100 # Max number of posts to consider in data gathering
+MAX_SUBREDDITS = 15 # Max number of subreddits to display
 MAX_DATE = 55 # How many days ago submissions are counted
 
 WAIT_TIME = 15
@@ -36,7 +36,7 @@ def get_usernames(submission):
         comment = comment_queue.pop()
         author = comment.author
         
-        # Don't count the bot the bot's submission and pass deleted comments
+        # Don't count the bot's comments and pass deleted comments
         if author == None or author.name == USERNAME:
             # Get more comments
             comment_queue.extend(comment.replies)
@@ -57,30 +57,28 @@ def get_data(usernames):
     data_start = time.clock()
     data = {}
     
-    print 'Begin data gather'
+    print('Begin data gather')
     
     while len(usernames) != 0:
         current_username = usernames.pop()
         visited_subreddits = set()
-        
+
         # Check each submission made by user
         for submission in reddit.redditor(current_username).comments.new(limit = MAX_POSTS):
             subreddit_display_name = submission.subreddit.display_name
-            
+
             # Difference of current date/time and submission date/time
             date = datetime.datetime.now() - datetime.datetime.fromtimestamp(submission.created)
-            
-            print date.days, "Days ago"
+
             # Stop checking if submissions are older than MAX_DATE
             if date.days > MAX_DATE:
-                print date.days, "breaking"
                 break
-            
+
             if subreddit_display_name not in visited_subreddits:
                 visited_subreddits.add(subreddit_display_name)
-                data[subreddit_display_name] = data.get(subreddit_display_name, 0) + 1    
-        
-    print "Total data gather time: %f" %(time.clock() - data_start)
+                data[subreddit_display_name] = data.get(subreddit_display_name, 0) + 1
+
+    print("Total data gather time: %f" %(time.clock() - data_start))
 
     return data
 
@@ -100,7 +98,7 @@ def begin(submission):
     # Organize and print data
     sorted_data = sorted(data.items(), key=operator.itemgetter(1), reverse = True)
     
-    POST = "Displaying top %d subreddits commented in, in the last %d days for redditors in this post\n\nSubreddit | Count\n---|---\n" %(MAX_SUBREDDITS,MAX_DATE)
+    POST = "Displaying top %d subreddits that redditors in this post commented in, in the last %d days\n\nSubreddit | Count\n---|---\n" %(MAX_SUBREDDITS,MAX_DATE)
     
     count = 0
     for i in sorted_data:
@@ -110,13 +108,20 @@ def begin(submission):
         #if i[1] == 1:
             #continue
         POST = POST + "%s | %s\n" %(i[0], i[1])
+        count += 1
+        
+    POST = POST + "\nI'm a bot. Contact /u/pirateprunes with any issues."
     
-    try:
-        message.reply(POST)
-    except Exception as e:
-        print "Fail:", e
-    print "unique users: %d" %(unique_users)
-    #print total_time                
+    # Keep trying to post until successful
+    while True:
+        try:
+            message.reply(POST)
+            break 
+        except Exception as e:
+            print ("Post Fail:", e)
+            time.sleep(60)
+    print("Successfully posted! \nUnique users: %d\n" %(unique_users))
+    #print total_time
 
 # Check message for command
 # TODO: Improve checking so only specific message is accepted rather than
@@ -125,7 +130,7 @@ def process_message(message):
     body = message.body
     body = body.lower()
     if body.find("give a report") != -1:
-        print "Found phrase"
+        print("Found phrase")
         return True
     return False
 
@@ -137,21 +142,21 @@ if __name__ == "__main__":
                              password = PASSWORD,
                              client_id = "",
                              client_secret = "",
-                             user_agent = "") 
+                             user_agent = "")
         
         submission = None
         
         while True:
             
-            print "Searching inbox"
+            print("Searching inbox")
             # Respond to username mentions in inbox
             for message in reddit.inbox.unread(limit = 1):
                 reddit.inbox.mark_read([message])            
                 if isinstance(message, Comment):
-                    print "Found comment"
+                    print("Found comment")
                     submission = message.submission
                     if process_message(message):
                         begin(submission)
             
-            print "Waiting for %d seconds" %(WAIT_TIME)
+            print("Waiting for %d seconds" %(WAIT_TIME))
             time.sleep(WAIT_TIME)
