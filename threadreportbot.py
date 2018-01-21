@@ -157,7 +157,9 @@ def begin(submission, body):
 
         new_string = new_string.rstrip(', ') + ')\n\n'
 
-        POST = POST + new_string + "Subreddit | Count\n---|---\n"
+        POST = POST + new_string
+
+    POST = POST + "Subreddit | Count\n---|---\n"
 
     count = 0
     for i in sorted_data:
